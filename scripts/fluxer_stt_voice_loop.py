@@ -53,7 +53,7 @@ from scripts.fluxer_xai_room_loop import (  # noqa: E402
     _redact_exception_message,
     _wait_for_barge_in,
 )
-from tools.transcription_tools import (  # noqa: E402
+from tools.fluxer_stt import (  # noqa: E402
     ELEVENLABS_STT_BASE_URL,
     _extract_transcript_text,
     _load_stt_config,
