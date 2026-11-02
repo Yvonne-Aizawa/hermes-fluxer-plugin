@@ -36,9 +36,22 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 HERMES_ROOT = Path(os.getenv("HERMES_AGENT_ROOT", str(Path.home() / ".hermes" / "hermes-agent")))
-for candidate in (ROOT, HERMES_ROOT):
+# HERMES_ROOT first, plugin ROOT last: the bundled ``tools`` package must
+# shadow the host core's one, which lacks the standalone helpers on cores
+# older than the transcription-helper removal.
+for candidate in (HERMES_ROOT, ROOT):
     if str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
+
+# Pre-bind the BUNDLED ``tools`` package before any core import chain runs:
+# importing adapter/gateway.config caches the host core's ``tools`` in
+# sys.modules (the editable-install finder maps it), which would shadow the
+# standalone STT helpers this plugin ships for pre-refactor cores.
+import sys as _sys_tools
+if "tools" in _sys_tools.modules and not str(getattr(_sys_tools.modules["tools"], "__file__") or "").startswith(str(ROOT)):
+    for _n in [n for n in _sys_tools.modules if n == "tools" or n.startswith("tools.")]:
+        del _sys_tools.modules[_n]
+import tools  # noqa: E402
 
 from adapter import FluxerAdapter  # noqa: E402
 from gateway.config import PlatformConfig  # noqa: E402
@@ -54,6 +67,7 @@ from scripts.fluxer_xai_room_loop import (  # noqa: E402
     _wait_for_barge_in,
 )
 from tools.transcription_common import ELEVENLABS_STT_BASE_URL  # noqa: E402
+
 from tools.transcription_tools import (  # noqa: E402
     _extract_transcript_text,
     _load_stt_config,
