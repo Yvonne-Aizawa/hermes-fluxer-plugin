@@ -10,6 +10,14 @@ This project uses simple semantic versioning while the plugin is young:
 
 ## [Unreleased]
 
+### Fixed
+
+- The realtime voice supervisor now starts on multiplexing gateways serving the default profile. The voice child environment previously failed closed whenever Hermes ran multiplexed without a bound profile scope — the default profile's normal state — so auto-join stayed disabled on default-only hosts with the supervisor warning "requires an active Hermes profile scope" on every connect. The launch profile's own environment is now used, matching the default-profile fallback Hermes core applies for scoped secret reads; a foreign routing home without a scope still fails closed.
+
+### Verification
+
+- Regression tests cover the unscoped default-profile fallback and the preserved fail-closed raise for foreign routing homes; the existing scoped-profile contract (a bound scope wins over os.environ) still passes.
+
 ## [0.6.0] - 2026-11-03
 
 ### Added

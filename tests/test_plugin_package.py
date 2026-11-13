@@ -927,6 +927,49 @@ def test_multiplexed_adapter_reads_active_profile_scope_not_process_env(monkeypa
     assert child_env["XAI_API_KEY"] == "secondary-xai"
 
 
+def test_multiplexed_unscoped_default_profile_builds_child_env_from_launch_env(monkeypatch):
+    """The default profile runs unscoped under multiplexing; the voice child env
+    falls back to the launch profile's own environment (the same default-profile
+    fallback Hermes core applies for scoped secret reads) instead of failing
+    closed and leaving the voice supervisor permanently disabled."""
+    secret_scope = pytest.importorskip("agent.secret_scope")
+    hermes_constants = pytest.importorskip("hermes_constants")
+    monkeypatch.setattr(
+        hermes_constants,
+        "get_routing_process_hermes_home",
+        lambda: hermes_constants.get_default_hermes_root(),
+    )
+    monkeypatch.setenv("FLUXER_BOT_TOKEN", "default-token")
+    monkeypatch.setenv("FLUXER_VOICE_ENABLED", "true")
+    secret_scope.set_multiplex_active(True)
+    try:
+        env = fluxer_adapter._voice_child_process_env()
+    finally:
+        secret_scope.set_multiplex_active(False)
+
+    assert env["FLUXER_BOT_TOKEN"] == "default-token"
+    assert env["FLUXER_VOICE_ENABLED"] == "true"
+
+
+def test_multiplexed_unscoped_foreign_routing_home_fails_closed(monkeypatch):
+    """A routed profile reaching the voice child env without a bound scope is a
+    Hermes profile-scoping bug: the fail-closed raise must survive so a foreign
+    profile can never inherit the launch profile's secrets."""
+    secret_scope = pytest.importorskip("agent.secret_scope")
+    hermes_constants = pytest.importorskip("hermes_constants")
+    monkeypatch.setattr(
+        hermes_constants,
+        "get_routing_process_hermes_home",
+        lambda: hermes_constants.get_default_hermes_root() / "profiles" / "secondary",
+    )
+    secret_scope.set_multiplex_active(True)
+    try:
+        with pytest.raises(RuntimeError, match="profile scope"):
+            fluxer_adapter._voice_child_process_env()
+    finally:
+        secret_scope.set_multiplex_active(False)
+
+
 def _stub_module(name: str, **attrs):
     import types as _types
 

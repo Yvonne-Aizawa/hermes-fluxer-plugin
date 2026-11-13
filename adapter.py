@@ -156,6 +156,34 @@ def _fluxer_env(name: str, default: Any = None) -> Any:
         return os.getenv(name, default)
 
 
+def _unscoped_routing_home_is_default() -> bool:
+    """True when an unscoped multiplexed context belongs to the default profile.
+
+    Mirrors ``gateway.platforms._shared.get_scoped_secret``: under multiplexing
+    the DEFAULT profile constructs and runs unscoped, where ``os.environ`` is
+    that profile's own environment. Routed (secondary) profiles always run with
+    a bound scope and a routing home other than the default root, so an
+    unscoped foreign home is a Hermes profile-scoping bug and must fail closed.
+    """
+    try:
+        from hermes_constants import (
+            get_default_hermes_root,
+            get_routing_process_hermes_home,
+        )
+    except ImportError:
+        # No Hermes core (standalone checkout): no routing layer exists, so the
+        # launch profile is the only context that can reach this code.
+        return True
+    routing_home = get_routing_process_hermes_home()
+    default_home = get_default_hermes_root()
+    if not routing_home or not default_home:
+        return True
+    try:
+        return Path(routing_home).resolve() == Path(default_home).resolve()
+    except (OSError, ValueError):
+        return False
+
+
 def _voice_child_process_env() -> dict[str, str]:
     """Build the trusted voice sidecar env without cross-profile secrets."""
     try:
@@ -167,7 +195,18 @@ def _voice_child_process_env() -> dict[str, str]:
         multiplexed = bool(is_multiplex_active())
         scope = current_secret_scope() if multiplexed else None
     if multiplexed and scope is None:
-        raise RuntimeError("Fluxer voice child environment requires an active Hermes profile scope")
+        # Under multiplexing the default profile runs unscoped by design; core
+        # treats os.environ as that profile's own values there. Fail closed
+        # only for a foreign routing home without a scope (a profile-scoping
+        # bug), never for the launch/default profile.
+        if not _unscoped_routing_home_is_default():
+            raise RuntimeError(
+                "Fluxer voice child environment requires an active Hermes profile scope"
+            )
+        logger.info(
+            "Fluxer voice child env: unscoped default profile under multiplexing; "
+            "using the launch profile's own environment"
+        )
 
     try:
         from tools.environments.local import build_subprocess_env
