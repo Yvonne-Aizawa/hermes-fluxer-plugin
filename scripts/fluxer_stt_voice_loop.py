@@ -514,6 +514,13 @@ def _safe_session_fragment(value: str | None, *, fallback: str) -> str:
     return cleaned[:80] or fallback
 
 
+# One voice call == one voice-loop process, so a module-level token is a
+# per-call token: the opt-in ``--new-session-per-call`` appends it to the
+# Hermes short-term session id, giving every call a fresh session instead of
+# resuming the room's previous one. The long-term memory key stays room-scoped.
+_CALL_SESSION_TOKEN = f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{os.urandom(2).hex()}"
+
+
 def _bounded_session_id(value: str, *, max_len: int = 64) -> str:
     """Keep session ids short enough for provider prompt-cache keys.
 
@@ -537,6 +544,11 @@ def hermes_voice_session_identity(args: argparse.Namespace) -> tuple[str, str]:
     ``X-Hermes-Session-Id`` and ``X-Hermes-Session-Key``. Voice mode uses
     stable room-scoped values so full-brain turns become normal persisted
     Hermes sessions and Honcho can scope long-term memory to the same room.
+
+    ``--new-session-per-call`` (``FLUXER_VOICE_NEW_SESSION_PER_CALL``) appends
+    a per-process call token to the session *id* only, so every call starts a
+    fresh short-term session while the long-term memory key — and the
+    time-windowed session recall path — stay room-scoped.
     """
 
     configured_id = str(getattr(args, "hermes_session_id", "") or "").strip()
@@ -551,6 +563,11 @@ def hermes_voice_session_identity(args: argparse.Namespace) -> tuple[str, str]:
     default_key = f"fluxer:voice:guild:{guild}:channel:{channel}:participant:{participant}"
     session_id = _bounded_session_id(configured_id or default_id, max_len=64)
     session_key = configured_key or default_key
+    if getattr(args, "new_session_per_call", False):
+        # A new call never resumes the previous call's transcript. The key is
+        # deliberately left untouched: long-term memory scope must not follow
+        # the per-call token.
+        session_id = _bounded_session_id(f"{session_id}-{_CALL_SESSION_TOKEN}", max_len=64)
     # The API server caps session headers at 256 chars, while provider prompt
     # cache keys may reject session ids over 64 chars.
     return session_id, session_key[:256]
@@ -1247,7 +1264,7 @@ async def run_stt_voice_loop(args: argparse.Namespace) -> dict[str, Any]:
     try:
         if not await adapter.wait_until_gateway_ready(timeout=args.connect_timeout):
             raise RuntimeError("Fluxer gateway did not emit READY before timeout")
-        await adapter.send_voice_state_update(args.channel_id, guild_id=args.guild_id, self_mute=True, self_deaf=False)
+        await adapter.send_voice_state_update(args.channel_id, guild_id=args.guild_id, self_mute=False, self_deaf=False)
         try:
             await asyncio.wait_for(connected.wait(), timeout=args.connect_timeout)
         except asyncio.TimeoutError:
@@ -1327,6 +1344,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--hermes-session-key",
         default=os.getenv("FLUXER_VOICE_HERMES_SESSION_KEY", ""),
         help="Optional stable Hermes long-term memory key for persisted full-brain voice turns; defaults to the Fluxer voice room identity",
+    )
+    parser.add_argument(
+        "--new-session-per-call",
+        action="store_true",
+        default=env_truthy("FLUXER_VOICE_NEW_SESSION_PER_CALL"),
+        help="Start a fresh Hermes short-term session for every voice call instead of resuming the room's previous session; long-term memory scope is unchanged",
     )
     parser.add_argument("--stt-provider", choices=("auto", "local", "groq", "xai", "elevenlabs"), default=os.getenv("FLUXER_VOICE_STT_PROVIDER", "elevenlabs"))
     parser.add_argument("--stt-model", default=os.getenv("FLUXER_VOICE_STT_MODEL", "medium.en"), help="STT model; ElevenLabs commonly uses scribe_v2, local commonly uses medium.en, Groq commonly uses whisper-large-v3-turbo")

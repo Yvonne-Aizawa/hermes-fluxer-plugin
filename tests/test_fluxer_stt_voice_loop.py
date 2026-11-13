@@ -129,6 +129,57 @@ def test_hermes_voice_session_identity_bounds_long_room_ids_for_provider_cache_k
     assert len(session_key) <= 256
 
 
+def test_hermes_voice_session_identity_new_session_per_call_uses_process_token(monkeypatch):
+    import scripts.fluxer_stt_voice_loop as voice_loop_module
+
+    args = argparse.Namespace(
+        guild_id="guild1",
+        channel_id="chan1",
+        participant_identity_prefix="user_1_",
+        hermes_session_id="",
+        hermes_session_key="",
+        new_session_per_call=True,
+    )
+
+    room_id = "fluxer-voice-guild1-chan1-user_1"
+    session_id, session_key = hermes_voice_session_identity(args)
+
+    # Fresh session per call: the room id gains the per-process call token.
+    assert session_id.startswith(room_id)
+    assert session_id != room_id
+    assert session_id.endswith(voice_loop_module._CALL_SESSION_TOKEN)
+    # Long-term memory key stays room-scoped.
+    assert session_key == "fluxer:voice:guild:guild1:channel:chan1:participant:user_1"
+
+    # Stable within one call (every turn of the same process reuses it).
+    again_id, again_key = hermes_voice_session_identity(args)
+    assert again_id == session_id
+    assert again_key == session_key
+
+    # A new call runs a new process: different token, new session, same memory key.
+    monkeypatch.setattr(voice_loop_module, "_CALL_SESSION_TOKEN", "20261113T150000-abcd")
+    next_call_id, next_call_key = hermes_voice_session_identity(args)
+    assert next_call_id != session_id
+    assert next_call_id.endswith("20261113T150000-abcd")
+    assert next_call_key == session_key
+    assert len(next_call_id) <= 64
+
+
+def test_hermes_voice_session_identity_default_keeps_room_scoped_session():
+    args = argparse.Namespace(
+        guild_id="guild1",
+        channel_id="chan1",
+        participant_identity_prefix="user_1_",
+        hermes_session_id="",
+        hermes_session_key="",
+    )
+
+    session_id, session_key = hermes_voice_session_identity(args)
+
+    assert session_id == "fluxer-voice-guild1-chan1-user_1"
+    assert session_key == "fluxer:voice:guild:guild1:channel:chan1:participant:user_1"
+
+
 @pytest.mark.asyncio
 async def test_hermes_chat_completion_sends_session_headers(monkeypatch):
     captured = {}
@@ -538,7 +589,7 @@ async def test_stt_voice_loop_leaves_with_fluxer_connection_id(monkeypatch, tmp_
     result = await run_stt_voice_loop(args)
 
     assert result["connection"]["connection_id"] == "conn-123"
-    assert sends[0] == ("voice-1", {"guild_id": "guild-1", "self_mute": True, "self_deaf": False})
+    assert sends[0] == ("voice-1", {"guild_id": "guild-1", "self_mute": False, "self_deaf": False})
     assert (None, {"guild_id": "guild-1", "connection_id": "conn-123"}) in sends
 
 
@@ -612,7 +663,7 @@ async def test_stt_voice_loop_surfaces_livekit_connect_failure_without_connect_t
 
     assert result["error"] == "RuntimeError"
     assert result["message"] == "livekit unavailable"
-    assert sends[0] == ("voice-1", {"guild_id": "guild-1", "self_mute": True, "self_deaf": False})
+    assert sends[0] == ("voice-1", {"guild_id": "guild-1", "self_mute": False, "self_deaf": False})
     assert (None, {"guild_id": "guild-1", "connection_id": None}) in sends
 
 
@@ -669,7 +720,7 @@ async def test_stt_voice_loop_returns_json_when_voice_server_update_times_out(mo
 
     assert result["error"] == "TimeoutError"
     assert "voice server update" in result["message"]
-    assert sends[0] == ("voice-1", {"guild_id": "guild-1", "self_mute": True, "self_deaf": False})
+    assert sends[0] == ("voice-1", {"guild_id": "guild-1", "self_mute": False, "self_deaf": False})
     assert (None, {"guild_id": "guild-1", "connection_id": None}) in sends
 
 

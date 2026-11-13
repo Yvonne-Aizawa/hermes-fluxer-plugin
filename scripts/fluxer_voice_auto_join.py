@@ -210,6 +210,8 @@ class FluxerVoiceAutoJoinSupervisor:
         ]
         if guild_id:
             cmd.extend(["--guild-id", guild_id])
+        if getattr(self.args, "new_session_per_call", False):
+            cmd.append("--new-session-per-call")
         if participant_prefix:
             cmd.extend(["--participant-identity-prefix", participant_prefix])
         if self.args.elevenlabs_language_code:
@@ -400,6 +402,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--guild-ids", default=os.getenv("FLUXER_VOICE_GUILD_IDS") or os.getenv("FLUXER_AUTO_JOIN_GUILD_IDS", ""))
     parser.add_argument("--participant-identity-prefix", default=os.getenv("FLUXER_VOICE_PARTICIPANT_PREFIX") or os.getenv("FLUXER_AUTO_JOIN_PARTICIPANT_PREFIX", ""))
     parser.add_argument("--python", default=os.getenv("FLUXER_VOICE_PYTHON", sys.executable))
+    parser.add_argument(
+        "--new-session-per-call",
+        action="store_true",
+        default=env_truthy("FLUXER_VOICE_NEW_SESSION_PER_CALL"),
+        help="Forwarded to the voice loop: start a fresh Hermes short-term session for every voice call",
+    )
     parser.add_argument("--env-file", default=os.getenv("HERMES_ENV_FILE", str(Path.home() / ".hermes" / ".env")))
     parser.add_argument("--brain-provider", choices=("auto", "xai-fast", "xai", "hermes"), default=os.getenv("FLUXER_VOICE_BRAIN_PROVIDER", "hermes"))
     parser.add_argument("--stt-provider", choices=("auto", "local", "groq", "xai", "elevenlabs"), default=os.getenv("FLUXER_VOICE_STT_PROVIDER", "elevenlabs"))

@@ -10,6 +10,10 @@ This project uses simple semantic versioning while the plugin is young:
 
 ## [Unreleased]
 
+### Added
+
+- `FLUXER_VOICE_NEW_SESSION_PER_CALL` (dashboard key `voice.new_session_per_call`, CLI `--new-session-per-call`): start a fresh Hermes short-term session for every voice call instead of resuming the room's previous session. Only the session *id* carries a per-call token; the long-term memory key stays room-scoped, so memory scope and the time-windowed session recall path are unchanged. Default off — voice sessions remain room-scoped unless you opt in.
+
 ### Fixed
 
 - The realtime voice supervisor now starts on multiplexing gateways serving the default profile. The voice child environment previously failed closed whenever Hermes ran multiplexed without a bound profile scope — the default profile's normal state — so auto-join stayed disabled on default-only hosts with the supervisor warning "requires an active Hermes profile scope" on every connect. The launch profile's own environment is now used, matching the default-profile fallback Hermes core applies for scoped secret reads; a foreign routing home without a scope still fails closed.

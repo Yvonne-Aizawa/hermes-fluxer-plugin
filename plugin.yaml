@@ -339,6 +339,10 @@ optional_env:
     description: "Optional stable Hermes long-term memory key for persisted full-brain voice turns; defaults to the Fluxer voice room identity"
     prompt: "Voice Hermes session key"
     password: false
+  - name: FLUXER_VOICE_NEW_SESSION_PER_CALL
+    description: "Start a fresh Hermes short-term session for every voice call instead of resuming the room's previous session; long-term memory scope is unchanged (true/false)"
+    prompt: "New Hermes session per voice call?"
+    password: false
   - name: FLUXER_VOICE_MAX_TURNS
     description: "Maximum turns handled by one voice loop process"
     prompt: "Voice max turns"

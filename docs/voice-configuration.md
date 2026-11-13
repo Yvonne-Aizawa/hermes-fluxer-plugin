@@ -126,6 +126,7 @@ These only matter when the voice loop calls the Hermes API for responses.
 | `hermes_temperature` | `FLUXER_VOICE_HERMES_TEMPERATURE` | `0.4` | Sampling temperature for brain responses. | Lower for predictable answers; higher for more playful conversation. |
 | `hermes_session_id` | `FLUXER_VOICE_HERMES_SESSION_ID` | derived from Fluxer guild/channel/participant | Stable Hermes short-term session ID for persisted full-brain voice turns. | Set only if you need a custom session identity; leave derived for normal room-scoped sessions. |
 | `hermes_session_key` | `FLUXER_VOICE_HERMES_SESSION_KEY` | derived from Fluxer guild/channel/participant | Stable Hermes long-term memory scope key sent as `X-Hermes-Session-Key`. | Set only if you need a custom Honcho/memory scope; leave derived for normal room-scoped memory. |
+| `new_session_per_call` | `FLUXER_VOICE_NEW_SESSION_PER_CALL` | `false` | Start a fresh Hermes short-term session for every voice call instead of resuming the room's previous session. Only the session ID gains a per-call token; the long-term memory key stays room-scoped. | Enable when each call should begin with a clean context; leave off to let calls continue one room-scoped conversation. |
 
 ### Capture, VAD, and timing
 

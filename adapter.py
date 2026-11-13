@@ -1033,6 +1033,7 @@ class FluxerVoiceSupervisorProcess:
             "hermes_temperature": "FLUXER_VOICE_HERMES_TEMPERATURE",
             "hermes_session_id": "FLUXER_VOICE_HERMES_SESSION_ID",
             "hermes_session_key": "FLUXER_VOICE_HERMES_SESSION_KEY",
+            "new_session_per_call": "FLUXER_VOICE_NEW_SESSION_PER_CALL",
             "max_turns": "FLUXER_VOICE_MAX_TURNS",
             "initial_settle_seconds": "FLUXER_VOICE_INITIAL_SETTLE_SECONDS",
             "sample_rate": "FLUXER_VOICE_SAMPLE_RATE",
